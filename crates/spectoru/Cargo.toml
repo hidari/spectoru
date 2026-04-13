@@ -1,0 +1,23 @@
+[package]
+name = "spectoru"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Visualize tests as living specifications: a static-site generator for Rust and Vitest test suites."
+readme = "../../README.md"
+keywords = ["test", "specification", "documentation", "static-site"]
+categories = ["command-line-utilities", "development-tools"]
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+insta = { version = "1", features = ["json"] }
