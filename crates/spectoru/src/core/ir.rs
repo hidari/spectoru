@@ -74,6 +74,17 @@ pub enum Language {
     TypeScript,
 }
 
+impl Language {
+    /// 機械可読な識別子。JSON・HTML・CLI で同じ表記を使う。
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Rust => "rust",
+            Self::TypeScript => "typescript",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SpecStatus {
     Active,
@@ -96,6 +107,16 @@ pub enum DiagnosticLevel {
     Error,
 }
 
+impl DiagnosticLevel {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Warning => "warning",
+            Self::Error => "error",
+        }
+    }
+}
+
 /// diagnostics の機械可読な分類コード。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DiagnosticCode {
@@ -111,6 +132,25 @@ pub enum DiagnosticCode {
     ParseError,
     /// 探索で見つかったファイルを読み出せなかった。
     FileUnreadable,
+}
+
+impl DiagnosticCode {
+    /// 機械可読な分類コード。
+    ///
+    /// メッセージ文言の変更が CI の判定を壊さないよう、細かい制御はこの
+    /// 文字列を使う。JSON・HTML・CLI のどこでも同じ表記になるよう、
+    /// 出どころをここ 1 箇所に保つ。
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NestingTooDeep => "nesting_too_deep",
+            Self::EmptyName => "empty_name",
+            Self::DynamicTestName => "dynamic_test_name",
+            Self::GitRevisionUnavailable => "git_revision_unavailable",
+            Self::ParseError => "parse_error",
+            Self::FileUnreadable => "file_unreadable",
+        }
+    }
 }
 
 /// extract 結果の集計値。

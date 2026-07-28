@@ -85,7 +85,16 @@ impl Extractor<'_> {
             return Some(revision.to_string());
         }
 
-        let resolved = self.git.current_revision(base);
+        // `spectoru build`（設定が作業ディレクトリ直下）だと base が空パスになる。
+        // 空パスはディレクトリとして開けないため、そのまま渡すと git 参照が
+        // 常に失敗する。最も普通の使い方なので必ずカレントに読み替える。
+        let repo_root = if base.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            base
+        };
+
+        let resolved = self.git.current_revision(repo_root);
         if resolved.is_none() {
             diagnostics.push(Diagnostic {
                 level: DiagnosticLevel::Warning,

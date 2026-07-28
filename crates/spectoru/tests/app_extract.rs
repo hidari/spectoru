@@ -19,7 +19,9 @@ use spectoru::core::ir::{
 };
 use spectoru::error::SpectoruError;
 use spectoru::ports::file_walker::FileWalker;
-use support::{FakeFileWalker, FakeGitProvider, FixedClock, UnreadableFileWalker};
+use support::{
+    FakeFileWalker, FakeGitProvider, FixedClock, RecordingGitProvider, UnreadableFileWalker,
+};
 
 const REVISION: &str = "abc1234";
 const EXTRACTED_AT: &str = "2026-04-13T12:00:00Z";
@@ -163,6 +165,56 @@ fn gitのrevisionが取れないと警告を積むが抽出は続行する() {
     );
     assert_eq!(ir.diagnostics[0].level, DiagnosticLevel::Warning);
     assert_eq!(ir.stats.total_specs, 2);
+}
+
+#[test]
+fn 設定が作業ディレクトリ直下にあってもgitには開けるパスを渡す() {
+    // 空パスはディレクトリとして開けないため、そのまま git に渡すと
+    // `spectoru build` という最も普通の使い方で revision が必ず取れなくなる。
+    let walker = FakeFileWalker::new(&default_tree());
+    let git = RecordingGitProvider::default();
+    let clock = FixedClock::default();
+    let extractor = Extractor {
+        config_codec: &TomlConfigCodec,
+        walker: &walker,
+        rust_parser: &SynRustParser,
+        ts_parser: &TreeSitterTsParser,
+        git: &git,
+        clock: &clock,
+    };
+
+    let ir = extractor
+        .extract(Path::new("spec-site.toml"), None)
+        .expect("extract");
+
+    assert_eq!(git.asked(), [PathBuf::from(".")]);
+    assert_eq!(ir.project.revision.as_deref(), Some("recorded"));
+    assert_eq!(codes(&ir.diagnostics), []);
+}
+
+#[test]
+fn 設定がサブディレクトリにあればそのディレクトリをgitに渡す() {
+    let walker = FakeFileWalker::new(&[
+        ("repo/spec-site.toml", CONFIG),
+        ("repo/src/artwork.rs", RUST_TEST),
+        ("repo/app/registration.test.ts", TS_TEST),
+    ]);
+    let git = RecordingGitProvider::default();
+    let clock = FixedClock::default();
+    let extractor = Extractor {
+        config_codec: &TomlConfigCodec,
+        walker: &walker,
+        rust_parser: &SynRustParser,
+        ts_parser: &TreeSitterTsParser,
+        git: &git,
+        clock: &clock,
+    };
+
+    extractor
+        .extract(Path::new("repo/spec-site.toml"), None)
+        .expect("extract");
+
+    assert_eq!(git.asked(), [PathBuf::from("repo")]);
 }
 
 #[test]

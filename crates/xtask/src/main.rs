@@ -19,6 +19,7 @@ fn main() -> ExitCode {
         "fmt-check" => fmt(&sh, true),
         "lint" => lint(&sh),
         "test" => test(&sh),
+        "e2e" => e2e(&sh),
         "build" => build(&sh),
         "deny" => deny(&sh),
         "ci" => ci(&sh),
@@ -52,6 +53,7 @@ fn print_help() {
     eprintln!("  fmt-check  rustfmt の差分検査（変更しない、CI向け）");
     eprintln!("  lint       cargo clippy --workspace --all-targets -- -D warnings");
     eprintln!("  test       cargo test --workspace");
+    eprintln!("  e2e        実バイナリに対する E2E テストのみ実行");
     eprintln!("  build      cargo build --release -p spectoru");
     eprintln!("  deny       cargo deny check（advisories / licenses / bans / sources）");
     eprintln!("  ci         fmt-check + lint + test を順に実行");
@@ -75,6 +77,12 @@ fn lint(sh: &Shell) -> xshell::Result<()> {
 
 fn test(sh: &Shell) -> xshell::Result<()> {
     cmd!(sh, "cargo test --workspace --all-features").run()
+}
+
+/// E2E だけを回す。CLI を触っているときの反復を短くするための入り口で、
+/// `test` にも含まれるため CI で別途走らせる必要はない。
+fn e2e(sh: &Shell) -> xshell::Result<()> {
+    cmd!(sh, "cargo test -p spectoru --test e2e_cli").run()
 }
 
 fn build(sh: &Shell) -> xshell::Result<()> {

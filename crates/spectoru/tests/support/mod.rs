@@ -191,6 +191,31 @@ impl GitProvider for FakeGitProvider {
     }
 }
 
+/// 問い合わせを受けたディレクトリを記録する。
+///
+/// 空パスを渡すと実物の git 実装はディレクトリを開けずに必ず失敗するため、
+/// 何を渡しているかを検証できるようにしておく。
+#[derive(Debug, Default)]
+pub struct RecordingGitProvider {
+    asked: Mutex<Vec<PathBuf>>,
+}
+
+impl RecordingGitProvider {
+    pub fn asked(&self) -> Vec<PathBuf> {
+        self.asked.lock().expect("lock").clone()
+    }
+}
+
+impl GitProvider for RecordingGitProvider {
+    fn current_revision(&self, repo_root: &Path) -> Option<String> {
+        self.asked
+            .lock()
+            .expect("lock")
+            .push(repo_root.to_path_buf());
+        Some("recorded".to_string())
+    }
+}
+
 /// 受け取った IR を検証できる形の文字列に落とすだけのテンプレートエンジン。
 ///
 /// 実装は Phase 7 で入る。ここで確かめたいのは「レンダラが何を、いくつ、

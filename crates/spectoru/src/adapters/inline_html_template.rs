@@ -16,8 +16,7 @@
 use std::fmt::Write as _;
 
 use crate::core::ir::{
-    Diagnostic, DiagnosticCode, DiagnosticLevel, Group, IntermediateRepresentation, Language,
-    ProjectMeta, Source, Spec, SpecStatus, Stats,
+    Diagnostic, Group, IntermediateRepresentation, ProjectMeta, Source, Spec, SpecStatus, Stats,
 };
 use crate::error::SpectoruError;
 use crate::ports::template_engine::TemplateEngine;
@@ -289,7 +288,7 @@ fn render_spec(spec: &Spec) -> String {
     let _ = writeln!(
         html,
         "<span class=\"spec-meta\">{} · {}:{}</span>",
-        escape_html(language_label(spec.language)),
+        escape_html(spec.language.as_str()),
         escape_html(&spec.file.to_string_lossy().replace('\\', "/")),
         spec.line
     );
@@ -315,12 +314,12 @@ fn render_diagnostics(projects: &[IntermediateRepresentation]) -> String {
         let _ = writeln!(
             html,
             "<li class=\"diagnostic diagnostic--{}\">",
-            level_label(diagnostic.level)
+            diagnostic.level.as_str()
         );
         let _ = writeln!(
             html,
             "<span class=\"code\">{}</span>",
-            escape_html(code_label(diagnostic.code))
+            escape_html(diagnostic.code.as_str())
         );
         let _ = writeln!(
             html,
@@ -354,31 +353,6 @@ fn source_id(project_index: usize, source_index: usize) -> String {
 
 fn group_id(project_index: usize, source_index: usize, group_index: usize) -> String {
     format!("p{project_index}-s{source_index}-g{group_index}")
-}
-
-fn language_label(language: Language) -> &'static str {
-    match language {
-        Language::Rust => "rust",
-        Language::TypeScript => "typescript",
-    }
-}
-
-fn level_label(level: DiagnosticLevel) -> &'static str {
-    match level {
-        DiagnosticLevel::Warning => "warning",
-        DiagnosticLevel::Error => "error",
-    }
-}
-
-fn code_label(code: DiagnosticCode) -> &'static str {
-    match code {
-        DiagnosticCode::NestingTooDeep => "nesting_too_deep",
-        DiagnosticCode::EmptyName => "empty_name",
-        DiagnosticCode::DynamicTestName => "dynamic_test_name",
-        DiagnosticCode::GitRevisionUnavailable => "git_revision_unavailable",
-        DiagnosticCode::ParseError => "parse_error",
-        DiagnosticCode::FileUnreadable => "file_unreadable",
-    }
 }
 
 fn is_safe_url(url: &str) -> bool {

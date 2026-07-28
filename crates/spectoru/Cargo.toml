@@ -27,6 +27,7 @@ proc-macro2 = { version = "1", features = ["span-locations"] }
 tree-sitter = "0.25"
 tree-sitter-typescript = "0.23"
 toml = "1"
+clap = { version = "4", features = ["derive"] }
 # ripgrep 由来の .gitignore 対応ウォーカー。
 ignore = "0.4"
 # エポック秒から暦日への変換のみに使う。閏年の扱いを自作する価値はない。
