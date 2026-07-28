@@ -42,6 +42,10 @@ app/
   記録して続行するか。CLI の品質ゲートとしては続行して最後にまとめて報告する方が
   使いやすい
 - **`--strict` の判定位置**: 診断の集計は app 層、exit code への変換は CLI 層
+- **フラグメントのエラー帰属**: `JsonCodec::decode` は汎用の文字列 codec であり
+  `JsonDecode { message }` にパスを持たない。`render --fragments a.json b.json` で
+  どのファイルが壊れているか伝えるのは app 層の責務になる。読み込み中のパスを
+  エラーに添える仕組みを用意する（0003 から持ち越し）
 
 ## テスト
 
