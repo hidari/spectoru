@@ -3,29 +3,46 @@
 //! ここで定義される型は外部 crate に一切依存しない。serde 派生は
 //! `adapters::serde_json_codec` 側の DTO 型で行い、ドメイン型は serialization
 //! フォーマットに縛られない純粋な値型として保つ。
+//!
+//! 階層は `project → source → group → spec` の 4 段。1 回の extract
+//! （= 1 つの `spec-site.toml`）が 1 つの [`IntermediateRepresentation`] を生み、
+//! それが JSON フラグメント 1 ファイルに対応する。複数リポジトリの集約は
+//! `render` が `&[IntermediateRepresentation]` を受け取ることで表現される。
 
 use std::path::PathBuf;
 
-/// 1 ソース（リポジトリ）に対する extract 結果のルート。
-///
-/// `render` はこの構造を入力として静的サイトを生成する。複数リポジトリの集約は
-/// `Vec<IntermediateRepresentation>` を入力に取るレンダラ側で扱う。
+/// 1 回の extract 結果のルート。JSON フラグメント 1 ファイルと 1:1 に対応する。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct IntermediateRepresentation {
-    pub source: SourceMeta,
-    pub groups: Vec<Group>,
+    pub project: ProjectMeta,
+    pub sources: Vec<Source>,
     pub diagnostics: Vec<Diagnostic>,
     pub stats: Stats,
 }
 
-/// extract を行ったソースのメタ情報。
+/// extract を行ったプロジェクトのメタ情報。
+///
+/// `repository` / `revision` / `extracted_at` が source ではなくここに載るのは、
+/// 1 つの `spec-site.toml` が 1 つの作業ディレクトリ（= 1 つの git リポジトリ）を
+/// 指すため。同一リポジトリ内の複数 source は必ず同じ revision を共有する。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct SourceMeta {
+pub struct ProjectMeta {
     pub name: String,
     pub repository: Option<String>,
+    /// git SHA。取得できなかった場合は `None`。
     pub revision: Option<String>,
-    /// ISO 8601 UTC 文字列。`chrono` 等を入れたくないため文字列で保持する。
+    /// ISO 8601 UTC 文字列。`chrono` 等を core に持ち込まないため、生成は
+    /// [`Clock`](crate::ports::clock::Clock) ポートに委ね、ここでは文字列で保持する。
     pub extracted_at: String,
+}
+
+/// `[[sources]]` 1 件分の抽出結果。
+///
+/// 言語は spec ごとの [`Language`] が事実として保持するため、ここには複製しない。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Source {
+    pub name: String,
+    pub groups: Vec<Group>,
 }
 
 /// テストのグルーピング。ファイルパスや `mod` / `describe` を表現する。

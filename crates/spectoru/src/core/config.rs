@@ -6,15 +6,20 @@
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SpectruConfig {
+pub struct SpectoruConfig {
     pub project: ProjectConfig,
     pub sources: Vec<SourceConfig>,
     pub lint: LintConfig,
 }
 
+/// `[project]` セクション。
+///
+/// `repository` が source ではなくここにあるのは、1 つの設定ファイルが 1 つの
+/// 作業ディレクトリを指し、その中の全 source が同じリポジトリに属するため。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectConfig {
     pub name: String,
+    pub repository: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,7 +27,6 @@ pub struct SourceConfig {
     pub name: String,
     pub kind: SourceKind,
     pub paths: Vec<PathBuf>,
-    pub repository: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

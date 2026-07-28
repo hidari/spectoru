@@ -1,11 +1,22 @@
 //! IR に対する純粋な検証ロジック。
 //!
-//! `validate_groups` は IR の `groups` ツリーを走査し、ネスト深さ超過と空文字
-//! テスト名を `Diagnostic` として収集する純関数。副作用ゼロ・順序決定的。
+//! `validate_sources` / `validate_groups` は IR のツリーを走査し、ネスト深さ超過と
+//! 空文字テスト名を `Diagnostic` として収集する純関数。副作用ゼロ・順序決定的。
 
-use crate::core::ir::{Diagnostic, DiagnosticCode, DiagnosticLevel, Group, Spec};
+use crate::core::ir::{Diagnostic, DiagnosticCode, DiagnosticLevel, Group, Source, Spec};
 
-/// `groups` を走査して lint diagnostics を返す純関数。
+/// IR 全体（全 source）を走査して lint diagnostics を返す純関数。
+///
+/// diagnostics は `sources` の宣言順、その中では [`validate_groups`] の順序で並ぶ。
+#[must_use]
+pub fn validate_sources(sources: &[Source], max_depth: usize) -> Vec<Diagnostic> {
+    sources
+        .iter()
+        .flat_map(|source| validate_groups(&source.groups, max_depth))
+        .collect()
+}
+
+/// 1 source 分の `groups` を走査して lint diagnostics を返す純関数。
 ///
 /// `max_depth` はファイル直下のグループ自身を深さ 1 として数えたときの上限。
 /// ネスト深さ違反は最初に上限を超えたグループ単位で 1 件出力される。
@@ -189,5 +200,56 @@ mod tests {
         let diags = validate_groups(&[g], 4);
         assert_eq!(diags.len(), 2);
         assert!(diags.iter().all(|d| d.code == DiagnosticCode::EmptyName));
+    }
+
+    fn source(name: &str, groups: Vec<Group>) -> Source {
+        Source {
+            name: name.to_string(),
+            groups,
+        }
+    }
+
+    #[test]
+    fn ソースが一つも無ければ警告は空になる() {
+        assert_eq!(validate_sources(&[], 4), vec![]);
+    }
+
+    #[test]
+    fn 全ソースの警告が集約される() {
+        let mut backend = group("foo.rs", "foo.rs");
+        backend.specs.push(spec(""));
+        let frontend = nested_chain(5);
+
+        let diags = validate_sources(
+            &[
+                source("Backend", vec![backend]),
+                source("Frontend", vec![frontend]),
+            ],
+            4,
+        );
+
+        assert_eq!(diags.len(), 2);
+        assert_eq!(diags[0].code, DiagnosticCode::EmptyName);
+        assert_eq!(diags[1].code, DiagnosticCode::NestingTooDeep);
+    }
+
+    #[test]
+    fn 警告はソースの宣言順に並ぶ() {
+        let mut first = group("", "first.rs");
+        first.specs.push(spec("ok"));
+        let mut second = group("", "second.rs");
+        second.specs.push(spec("ok"));
+
+        let diags = validate_sources(
+            &[
+                source("Backend", vec![first]),
+                source("Frontend", vec![second]),
+            ],
+            4,
+        );
+
+        assert_eq!(diags.len(), 2);
+        assert_eq!(diags[0].file, Some(PathBuf::from("first.rs")));
+        assert_eq!(diags[1].file, Some(PathBuf::from("second.rs")));
     }
 }

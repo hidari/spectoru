@@ -4,11 +4,13 @@
 //! 型を一切晒さない。実装は `adapters/` 配下にのみ存在する。
 //!
 //! このモジュール内のファイルは外部 crate を `use` してはならない。
-//! `extern crate` を取り込んでよいのは `adapters/` 配下だけ、という規律を
-//! コードレビューと grep ベースのアーキテクチャテストで担保する。
+//! `extern crate` を取り込んでよいのは `adapters/` 配下だけ、という規律は
+//! `tests/architecture.rs` が実際にソースを走査して機械的に担保する。
 
 pub mod cli_parser;
+pub mod clock;
 pub mod file_walker;
+pub mod file_writer;
 pub mod git_provider;
 pub mod json_codec;
 pub mod rust_parser;
