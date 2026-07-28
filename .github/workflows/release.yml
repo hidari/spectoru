@@ -1,0 +1,153 @@
+name: Release
+
+# リリースは必ずこのワークフローを通す。ローカルからは行わない。
+#
+# 成果物のアップロードにサードパーティ製アクションを使わず、ランナーに
+# プリインストールされている gh CLI で完結させている。ピン留めして追跡すべき
+# 依存が増えないぶん、サプライチェーン上の面積が小さくなる。
+#
+# 下書きとして作ってから各プラットフォームの成果物を足し、全部揃ってから
+# 公開する。ビルドが 1 つでも失敗した場合に、中途半端なリリースが利用者から
+# 見える状態にならないようにするため。
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  # リリースの途中で打ち切ると下書きが残る。取り消さない。
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.ref_name }}
+  # gh が git remote からリポジトリを推測するのに頼らず明示する。
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  verify:
+    name: 検証
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain (rust-toolchain.toml)
+        run: rustup show
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+
+      # タグと Cargo.toml のバージョンがずれたままリリースすると、配布物の
+      # `--version` が名乗る番号とタグが食い違う。後から直せないので先に落とす。
+      - name: Verify tag matches crate version
+        run: |
+          set -euo pipefail
+          crate_version="$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name == "spectoru") | .version')"
+          if [ "$TAG" != "v${crate_version}" ]; then
+            echo "タグ ${TAG} と Cargo.toml のバージョン ${crate_version} が一致しない" >&2
+            exit 1
+          fi
+
+      - name: Run cargo xtask ci
+        run: cargo xtask ci
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        with:
+          tool: cargo-deny
+
+      - name: Run cargo xtask deny
+        run: cargo xtask deny
+
+      - name: Build spectoru's own spec site
+        run: cargo xtask spec-site
+
+  draft:
+    name: 下書きを作成
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # GH_REPO を明示しているため、gh だけを使うジョブに作業コピーは要らない。
+      # --verify-tag により、リポジトリに存在しないタグでは作成されない。
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            --draft \
+            --verify-tag \
+            --title "$TAG" \
+            --generate-notes
+
+  upload:
+    name: 成果物を追加 (${{ matrix.target }})
+    needs: draft
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    strategy:
+      # 1 つのプラットフォームの失敗で他を巻き添えにしない。どこまで通ったかが
+      # 分かる方が原因を絞りやすい。
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain (rust-toolchain.toml)
+        run: rustup show
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build distribution archive
+        run: cargo xtask dist ${{ matrix.target }}
+
+      - name: Upload to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" \
+            "dist-artifacts/spectoru-${{ matrix.target }}.tar.gz" \
+            --clobber
+
+  publish:
+    name: 公開
+    needs: upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # 下書きを公開すると GitHub が既定で最新リリースとして扱う。
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$TAG" --draft=false

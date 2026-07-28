@@ -22,6 +22,13 @@ fn main() -> ExitCode {
         "e2e" => e2e(&sh),
         "build" => build(&sh),
         "spec-site" => spec_site(&sh),
+        "dist" => {
+            let Some(target) = args.get(1) else {
+                eprintln!("xtask: dist にはターゲット三つ組が必要（例: x86_64-unknown-linux-gnu）");
+                return ExitCode::FAILURE;
+            };
+            dist(&sh, target)
+        }
         "deny" => deny(&sh),
         "ci" => ci(&sh),
         "help" | "--help" | "-h" => {
@@ -57,6 +64,7 @@ fn print_help() {
     eprintln!("  e2e        実バイナリに対する E2E テストのみ実行");
     eprintln!("  build      cargo build --release -p spectoru");
     eprintln!("  spec-site  spectoru 自身の仕様サイトを dist/ に生成（--strict）");
+    eprintln!("  dist <t>   配布用アーカイブを dist-artifacts/ に作成（t: ターゲット三つ組）");
     eprintln!("  deny       cargo deny check（advisories / licenses / bans / sources）");
     eprintln!("  ci         fmt-check + lint + test を順に実行");
 }
@@ -102,6 +110,35 @@ fn spec_site(sh: &Shell) -> xshell::Result<()> {
         "cargo run --quiet --release -p spectoru -- build --strict --out dist"
     )
     .run()
+}
+
+/// 配布用アーカイブを作る。
+///
+/// `--locked` を付けるのは、リリース成果物が Cargo.lock どおりの依存で
+/// ビルドされたことを保証するため。ここで解決が変わると、テストした構成と
+/// 配布した構成が別物になる。
+///
+/// リリースそのものは GitHub Actions が行う。このサブコマンドは「配布物を
+/// 手元で組み立てて確かめる」ためのものであって、公開はしない。
+fn dist(sh: &Shell, target: &str) -> xshell::Result<()> {
+    cmd!(
+        sh,
+        "cargo build --release --locked --target {target} -p spectoru"
+    )
+    .run()?;
+
+    sh.create_dir("dist-artifacts")?;
+    let archive = format!("dist-artifacts/spectoru-{target}.tar.gz");
+    let binary_dir = format!("target/{target}/release");
+
+    cmd!(
+        sh,
+        "tar -czf {archive} -C {binary_dir} spectoru -C ../../.. README.md"
+    )
+    .run()?;
+
+    eprintln!("xtask: {archive} を作成した");
+    Ok(())
 }
 
 fn deny(sh: &Shell) -> xshell::Result<()> {
