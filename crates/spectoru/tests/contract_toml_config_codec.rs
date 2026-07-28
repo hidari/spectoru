@@ -80,6 +80,32 @@ fn 複数のsourceを宣言順に読む() {
 }
 
 #[test]
+fn excludeを省略すると空になる() {
+    assert_eq!(decoded(MINIMAL).sources[0].exclude, Vec::<PathBuf>::new());
+}
+
+#[test]
+fn excludeで探索対象から外すパスを指定できる() {
+    let source = r#"
+[project]
+name = "Minimal"
+
+[[sources]]
+name = "Tests"
+kind = "rust"
+paths = ["tests/"]
+exclude = ["tests/fixtures/", "tests/support/"]
+"#;
+    assert_eq!(
+        decoded(source).sources[0].exclude,
+        [
+            PathBuf::from("tests/fixtures/"),
+            PathBuf::from("tests/support/")
+        ]
+    );
+}
+
+#[test]
 fn repositoryは省略できる() {
     assert_eq!(decoded(MINIMAL).project.repository, None);
 }

@@ -265,6 +265,44 @@ fn テストを含まないファイルはグループにならない() {
 }
 
 #[test]
+fn excludeで指定したパス配下は抽出もパースもされない() {
+    // フィクスチャや生成コードのように、ソースツリーには存在するが仕様では
+    // ないものを外す。意図的に壊したファイルも診断を出さない。
+    let config = r#"
+[project]
+name = "Astralys"
+
+[[sources]]
+name = "Backend"
+kind = "rust"
+paths = ["src/"]
+exclude = ["src/fixtures/"]
+"#;
+    let ir = extract(&[
+        ("spec-site.toml", config),
+        ("src/artwork.rs", RUST_TEST),
+        (
+            "src/fixtures/sample.rs",
+            "#[test]\nfn これは仕様ではない() {}\n",
+        ),
+        ("src/fixtures/invalid.rs", "fn broken( {\n"),
+    ]);
+
+    let names: Vec<&str> = ir.sources[0]
+        .groups
+        .iter()
+        .map(|group| group.name.as_str())
+        .collect();
+    assert_eq!(names, ["src/artwork.rs"]);
+    assert_eq!(
+        codes(&ir.diagnostics),
+        [],
+        "除外したファイルは診断も出さない"
+    );
+    assert_eq!(ir.stats.total_specs, 1);
+}
+
+#[test]
 fn パーサが出した診断がIRに引き継がれる() {
     let mut files = default_tree();
     files.push((

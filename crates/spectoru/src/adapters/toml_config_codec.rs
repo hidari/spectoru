@@ -77,6 +77,8 @@ struct SourceDto {
     name: String,
     kind: SourceKindDto,
     paths: Vec<PathBuf>,
+    #[serde(default)]
+    exclude: Vec<PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -122,6 +124,7 @@ impl From<SourceDto> for SourceConfig {
             name: dto.name,
             kind: dto.kind.into(),
             paths: dto.paths,
+            exclude: dto.exclude,
         }
     }
 }

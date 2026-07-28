@@ -32,3 +32,33 @@ jobs:
 
       - name: Run cargo xtask ci
         run: cargo xtask ci
+
+  spec-site:
+    name: cargo xtask spec-site
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain (rust-toolchain.toml)
+        run: rustup show
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+
+      # spectoru 自身のテストを spectoru で可視化する（ドッグフーディング）。
+      # 想定ユースケースにそのまま当てはまる構成を自前で持っているため、
+      # これが最も実効性のある回帰テストになる。--strict なので、自分の仕様が
+      # 自分の品質基準を満たさなくなった時点で落ちる。
+      - name: Build spectoru's own spec site
+        run: cargo xtask spec-site
+
+      - name: Verify the generated site
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          # 生成物が外部ホストへリソースを取りに行っていないこと。
+          ! grep -qE '<script src|<link |<img |@import' dist/index.html

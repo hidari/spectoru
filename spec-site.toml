@@ -1,0 +1,22 @@
+# spectoru 自身の仕様サイト設定。
+#
+# 想定ユースケースにそのまま当てはまる構成（日本語のテスト名、ネストした
+# `mod tests`、契約テストと統合テストの混在）を自前で持っているため、
+# ドッグフーディングが最も実効性のある回帰テストになる。
+
+[project]
+name = "Spectoru"
+repository = "https://github.com/hidari/spectoru"
+
+[[sources]]
+name = "ユニットテスト"
+kind = "rust"
+paths = ["crates/spectoru/src/"]
+
+[[sources]]
+name = "契約テスト・統合テスト"
+kind = "rust"
+paths = ["crates/spectoru/tests/"]
+# フィクスチャは spectoru の仕様ではなくパーサへの入力データ。サイトに載ると
+# 内容として誤りになるうえ、意図的に構文を壊したファイルも含まれる。
+exclude = ["crates/spectoru/tests/fixtures/"]

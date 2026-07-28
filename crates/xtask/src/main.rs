@@ -21,6 +21,7 @@ fn main() -> ExitCode {
         "test" => test(&sh),
         "e2e" => e2e(&sh),
         "build" => build(&sh),
+        "spec-site" => spec_site(&sh),
         "deny" => deny(&sh),
         "ci" => ci(&sh),
         "help" | "--help" | "-h" => {
@@ -55,6 +56,7 @@ fn print_help() {
     eprintln!("  test       cargo test --workspace");
     eprintln!("  e2e        実バイナリに対する E2E テストのみ実行");
     eprintln!("  build      cargo build --release -p spectoru");
+    eprintln!("  spec-site  spectoru 自身の仕様サイトを dist/ に生成（--strict）");
     eprintln!("  deny       cargo deny check（advisories / licenses / bans / sources）");
     eprintln!("  ci         fmt-check + lint + test を順に実行");
 }
@@ -87,6 +89,19 @@ fn e2e(sh: &Shell) -> xshell::Result<()> {
 
 fn build(sh: &Shell) -> xshell::Result<()> {
     cmd!(sh, "cargo build --release -p spectoru").run()
+}
+
+/// spectoru 自身の仕様サイトを生成する（ドッグフーディング）。
+///
+/// `--strict` を付けるのは、自分の仕様が自分の品質基準を満たしていることを
+/// 常に保つため。想定ユースケースにそのまま当てはまる構成を自前で持っているので、
+/// これが最も実効性のある回帰テストになる。
+fn spec_site(sh: &Shell) -> xshell::Result<()> {
+    cmd!(
+        sh,
+        "cargo run --quiet --release -p spectoru -- build --strict --out dist"
+    )
+    .run()
 }
 
 fn deny(sh: &Shell) -> xshell::Result<()> {

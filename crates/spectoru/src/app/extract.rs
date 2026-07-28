@@ -121,6 +121,10 @@ impl Extractor<'_> {
             let absolute = file.root.join(&file.relative);
             let display = display_path(base, &absolute);
 
+            if config.excludes(&display) {
+                continue;
+            }
+
             let Some(contents) = self.read_source(&absolute, &display, diagnostics) else {
                 continue;
             };
