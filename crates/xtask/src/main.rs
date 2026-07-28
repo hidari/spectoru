@@ -131,9 +131,11 @@ fn dist(sh: &Shell, target: &str) -> xshell::Result<()> {
     let archive = format!("dist-artifacts/spectoru-{target}.tar.gz");
     let binary_dir = format!("target/{target}/release");
 
+    // ライセンス本文を同梱する。MIT / Apache-2.0 のいずれも、配布物に
+    // 著作権表示とライセンス条文を含めることを条件にしている。
     cmd!(
         sh,
-        "tar -czf {archive} -C {binary_dir} spectoru -C ../../.. README.md"
+        "tar -czf {archive} -C {binary_dir} spectoru -C ../../.. README.md LICENSE-MIT LICENSE-APACHE"
     )
     .run()?;
 
