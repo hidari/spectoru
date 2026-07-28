@@ -8,6 +8,7 @@
 pub mod command_git_provider;
 pub mod fs_file_writer;
 pub mod ignore_file_walker;
+pub mod inline_html_template;
 pub mod serde_json_codec;
 pub mod syn_rust_parser;
 pub mod system_clock;
