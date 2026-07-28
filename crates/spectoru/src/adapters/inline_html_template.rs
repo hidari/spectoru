@@ -16,8 +16,9 @@
 use std::fmt::Write as _;
 
 use crate::core::ir::{
-    Diagnostic, Group, IntermediateRepresentation, ProjectMeta, Source, Spec, SpecStatus, Stats,
+    Group, IntermediateRepresentation, ProjectMeta, Source, Spec, SpecStatus, Stats,
 };
+use crate::core::tree::normalize_path;
 use crate::error::SpectoruError;
 use crate::ports::template_engine::TemplateEngine;
 
@@ -45,20 +46,16 @@ fn render(projects: &[IntermediateRepresentation]) -> String {
     html.push_str("<!DOCTYPE html>\n<html lang=\"ja\">\n<head>\n");
     html.push_str("<meta charset=\"utf-8\">\n");
     html.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
-    let _ = writeln!(
-        html,
-        "<title>{}</title>",
-        escape_html(&site_title(projects))
-    );
+    let _ = writeln!(html, "<title>{}</title>", escape_html(site_title(projects)));
     let _ = writeln!(html, "<style>{STYLE}</style>");
     html.push_str("</head>\n<body>\n");
 
-    html.push_str(&render_header(projects));
+    render_header(&mut html, projects);
     html.push_str("<div class=\"layout\">\n");
-    html.push_str(&render_sidebar(projects));
+    render_sidebar(&mut html, projects);
     html.push_str("<main class=\"content\">\n");
-    html.push_str(&render_projects(projects));
-    html.push_str(&render_diagnostics(projects));
+    render_projects(&mut html, projects);
+    render_diagnostics(&mut html, projects);
     html.push_str("<p class=\"empty-result\" hidden>一致する仕様がありません。</p>\n");
     html.push_str("</main>\n</div>\n");
 
@@ -68,28 +65,24 @@ fn render(projects: &[IntermediateRepresentation]) -> String {
     html
 }
 
-fn site_title(projects: &[IntermediateRepresentation]) -> String {
+fn site_title(projects: &[IntermediateRepresentation]) -> &str {
     match projects {
-        [only] => only.project.name.clone(),
-        _ => "Spectoru".to_string(),
+        [only] => &only.project.name,
+        _ => "Spectoru",
     }
 }
 
-fn render_header(projects: &[IntermediateRepresentation]) -> String {
+fn render_header(html: &mut String, projects: &[IntermediateRepresentation]) {
     let totals = total_stats(projects);
-    let mut html = String::from("<header class=\"site-header\">\n");
+    html.push_str("<header class=\"site-header\">\n");
 
-    let _ = writeln!(html, "<h1>{}</h1>", escape_html(&site_title(projects)));
+    let _ = writeln!(html, "<h1>{}</h1>", escape_html(site_title(projects)));
 
     html.push_str("<dl class=\"stats\">\n");
-    push_stat(&mut html, "仕様", &totals.total_specs.to_string());
-    push_stat(&mut html, "Rust", &totals.languages.rust.to_string());
-    push_stat(
-        &mut html,
-        "TypeScript",
-        &totals.languages.typescript.to_string(),
-    );
-    push_stat(&mut html, "警告", &totals.warnings.to_string());
+    push_stat(html, "仕様", &totals.total_specs.to_string());
+    push_stat(html, "Rust", &totals.languages.rust.to_string());
+    push_stat(html, "TypeScript", &totals.languages.typescript.to_string());
+    push_stat(html, "警告", &totals.warnings.to_string());
     html.push_str("</dl>\n");
 
     html.push_str(
@@ -97,7 +90,6 @@ fn render_header(projects: &[IntermediateRepresentation]) -> String {
          placeholder=\"仕様を検索\" autocomplete=\"off\">\n",
     );
     html.push_str("</header>\n");
-    html
 }
 
 fn push_stat(html: &mut String, label: &str, value: &str) {
@@ -123,8 +115,8 @@ fn total_stats(projects: &[IntermediateRepresentation]) -> Stats {
     totals
 }
 
-fn render_sidebar(projects: &[IntermediateRepresentation]) -> String {
-    let mut html = String::from("<nav class=\"sidebar\" aria-label=\"仕様ツリー\">\n<ul>\n");
+fn render_sidebar(html: &mut String, projects: &[IntermediateRepresentation]) {
+    html.push_str("<nav class=\"sidebar\" aria-label=\"仕様ツリー\">\n<ul>\n");
 
     for (project_index, project) in projects.iter().enumerate() {
         let _ = writeln!(
@@ -161,12 +153,9 @@ fn render_sidebar(projects: &[IntermediateRepresentation]) -> String {
     }
 
     html.push_str("</ul>\n</nav>\n");
-    html
 }
 
-fn render_projects(projects: &[IntermediateRepresentation]) -> String {
-    let mut html = String::new();
-
+fn render_projects(html: &mut String, projects: &[IntermediateRepresentation]) {
     for (project_index, project) in projects.iter().enumerate() {
         let _ = writeln!(
             html,
@@ -174,20 +163,18 @@ fn render_projects(projects: &[IntermediateRepresentation]) -> String {
             project_id(project_index)
         );
         let _ = writeln!(html, "<h2>{}</h2>", escape_html(&project.project.name));
-        html.push_str(&render_project_meta(&project.project));
+        render_project_meta(html, &project.project);
 
         for (source_index, source) in project.sources.iter().enumerate() {
-            html.push_str(&render_source(project_index, source_index, source));
+            render_source(html, project_index, source_index, source);
         }
 
         html.push_str("</section>\n");
     }
-
-    html
 }
 
-fn render_project_meta(meta: &ProjectMeta) -> String {
-    let mut html = String::from("<p class=\"meta\">\n");
+fn render_project_meta(html: &mut String, meta: &ProjectMeta) {
+    html.push_str("<p class=\"meta\">\n");
 
     if let Some(repository) = &meta.repository {
         if is_safe_url(repository) {
@@ -219,12 +206,9 @@ fn render_project_meta(meta: &ProjectMeta) -> String {
     );
 
     html.push_str("</p>\n");
-    html
 }
 
-fn render_source(project_index: usize, source_index: usize, source: &Source) -> String {
-    let mut html = String::new();
-
+fn render_source(html: &mut String, project_index: usize, source_index: usize, source: &Source) {
     let _ = writeln!(
         html,
         "<section class=\"source\" id=\"{}\" data-container>",
@@ -233,19 +217,17 @@ fn render_source(project_index: usize, source_index: usize, source: &Source) -> 
     let _ = writeln!(html, "<h3>{}</h3>", escape_html(&source.name));
 
     for (group_index, group) in source.groups.iter().enumerate() {
-        html.push_str(&render_group(
+        render_group(
+            html,
             group,
             Some(&group_id(project_index, source_index, group_index)),
-        ));
+        );
     }
 
     html.push_str("</section>\n");
-    html
 }
 
-fn render_group(group: &Group, id: Option<&str>) -> String {
-    let mut html = String::new();
-
+fn render_group(html: &mut String, group: &Group, id: Option<&str>) {
     match id {
         Some(id) => {
             let _ = writeln!(html, "<section class=\"group\" id=\"{id}\" data-container>");
@@ -258,21 +240,19 @@ fn render_group(group: &Group, id: Option<&str>) -> String {
     if !group.specs.is_empty() {
         html.push_str("<ul class=\"specs\">\n");
         for spec in &group.specs {
-            html.push_str(&render_spec(spec));
+            render_spec(html, spec);
         }
         html.push_str("</ul>\n");
     }
 
     for child in &group.children {
-        html.push_str(&render_group(child, None));
+        render_group(html, child, None);
     }
 
     html.push_str("</section>\n");
-    html
 }
 
-fn render_spec(spec: &Spec) -> String {
-    let mut html = String::new();
+fn render_spec(html: &mut String, spec: &Spec) {
     let skipped = if spec.status == SpecStatus::Skipped {
         " spec--skipped"
     } else {
@@ -289,28 +269,25 @@ fn render_spec(spec: &Spec) -> String {
         html,
         "<span class=\"spec-meta\">{} · {}:{}</span>",
         escape_html(spec.language.as_str()),
-        escape_html(&spec.file.to_string_lossy().replace('\\', "/")),
+        escape_html(&normalize_path(&spec.file)),
         spec.line
     );
     if spec.status == SpecStatus::Skipped {
         html.push_str("<span class=\"badge\">skipped</span>\n");
     }
     html.push_str("</li>\n");
-    html
 }
 
-fn render_diagnostics(projects: &[IntermediateRepresentation]) -> String {
-    let diagnostics: Vec<&Diagnostic> = projects
+fn render_diagnostics(html: &mut String, projects: &[IntermediateRepresentation]) {
+    if projects
         .iter()
-        .flat_map(|project| &project.diagnostics)
-        .collect();
-
-    if diagnostics.is_empty() {
-        return String::new();
+        .all(|project| project.diagnostics.is_empty())
+    {
+        return;
     }
 
-    let mut html = String::from("<section class=\"diagnostics\">\n<h2>診断</h2>\n<ul>\n");
-    for diagnostic in diagnostics {
+    html.push_str("<section class=\"diagnostics\">\n<h2>診断</h2>\n<ul>\n");
+    for diagnostic in projects.iter().flat_map(|project| &project.diagnostics) {
         let _ = writeln!(
             html,
             "<li class=\"diagnostic diagnostic--{}\">",
@@ -328,8 +305,8 @@ fn render_diagnostics(projects: &[IntermediateRepresentation]) -> String {
         );
         if let Some(file) = &diagnostic.file {
             let location = match diagnostic.line {
-                Some(line) => format!("{}:{line}", file.to_string_lossy().replace('\\', "/")),
-                None => file.to_string_lossy().replace('\\', "/"),
+                Some(line) => format!("{}:{line}", normalize_path(file)),
+                None => normalize_path(file),
             };
             let _ = writeln!(
                 html,
@@ -340,7 +317,6 @@ fn render_diagnostics(projects: &[IntermediateRepresentation]) -> String {
         html.push_str("</li>\n");
     }
     html.push_str("</ul>\n</section>\n");
-    html
 }
 
 fn project_id(project_index: usize) -> String {

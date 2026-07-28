@@ -10,6 +10,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use spectoru::adapters::ignore_file_walker::IgnoreFileWalker;
+use spectoru::core::tree::normalize_path;
 use spectoru::error::SpectoruError;
 use spectoru::ports::file_walker::FileWalker;
 use tempfile::TempDir;
@@ -33,7 +34,7 @@ fn walk(roots: &[&Path], extensions: &[&str]) -> Vec<String> {
         .walk(&roots, extensions)
         .expect("walk")
         .iter()
-        .map(|file| file.relative.to_string_lossy().replace('\\', "/"))
+        .map(|file| normalize_path(&file.relative))
         .collect()
 }
 

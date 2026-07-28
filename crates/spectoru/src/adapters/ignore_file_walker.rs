@@ -40,7 +40,7 @@ impl FileWalker for IgnoreFileWalker {
         }
 
         // root が重なっていても（例: `["./", "src/"]`）同じファイルは 1 度だけ返す。
-        found.sort_by_key(absolute_path);
+        found.sort_by_cached_key(absolute_path);
         found.dedup_by_key(|file| absolute_path(file));
 
         Ok(found)
