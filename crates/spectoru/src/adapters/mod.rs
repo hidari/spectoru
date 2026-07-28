@@ -6,3 +6,5 @@
 //! 差し替え時に守るべき契約」を検証する。
 
 pub mod serde_json_codec;
+pub mod syn_rust_parser;
+pub mod tree_sitter_ts_parser;

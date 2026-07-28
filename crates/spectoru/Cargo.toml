@@ -18,6 +18,14 @@ workspace = true
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# serde_derive / thiserror-impl が使う版に合わせる。ここだけ 2 系にすると
+# ビルドグラフに syn が二重に載る。
+syn = { version = "3", features = ["full", "parsing"] }
+# syn の Span から行番号を取るために必要。span-locations 無しでは
+# `Span::start()` が常に 0 を返し、サイトからソースへ辿れなくなる。
+proc-macro2 = { version = "1", features = ["span-locations"] }
+tree-sitter = "0.25"
+tree-sitter-typescript = "0.23"
 
 [dev-dependencies]
 insta = { version = "1", features = ["json"] }
