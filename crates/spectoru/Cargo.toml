@@ -18,6 +18,21 @@ workspace = true
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# serde_derive / thiserror-impl が使う版に合わせる。ここだけ 2 系にすると
+# ビルドグラフに syn が二重に載る。
+syn = { version = "3", features = ["full", "parsing"] }
+# syn の Span から行番号を取るために必要。span-locations 無しでは
+# `Span::start()` が常に 0 を返し、サイトからソースへ辿れなくなる。
+proc-macro2 = { version = "1", features = ["span-locations"] }
+tree-sitter = "0.25"
+tree-sitter-typescript = "0.23"
+toml = "1"
+clap = { version = "4", features = ["derive"] }
+# ripgrep 由来の .gitignore 対応ウォーカー。
+ignore = "0.4"
+# エポック秒から暦日への変換のみに使う。閏年の扱いを自作する価値はない。
+time = "0.3"
 
 [dev-dependencies]
 insta = { version = "1", features = ["json"] }
+tempfile = "3"

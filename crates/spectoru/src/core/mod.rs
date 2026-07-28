@@ -8,3 +8,4 @@ pub mod config;
 pub mod ir;
 pub mod lint;
 pub mod stats;
+pub mod tree;

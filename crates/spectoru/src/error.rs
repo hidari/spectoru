@@ -32,6 +32,15 @@ pub enum SpectoruError {
     #[error("JSON デコード失敗: {message}")]
     JsonDecode { message: String },
 
+    /// 中間表現フラグメントの読み込み失敗。
+    ///
+    /// `JsonDecode` と分けているのは、`render --fragments a.json b.json` で
+    /// どのファイルが壊れているのかを型として持たせるため。JSON codec 自体は
+    /// ファイル専用ではない汎用の文字列 codec なので、パスの帰属は
+    /// application 層で与える。
+    #[error("フラグメントの読み込み失敗: {path}: {message}")]
+    Fragment { path: PathBuf, message: String },
+
     #[error("テンプレート描画失敗: {message}")]
     TemplateRender { message: String },
 

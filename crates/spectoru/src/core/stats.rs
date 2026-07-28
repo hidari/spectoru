@@ -2,14 +2,18 @@
 //!
 //! `compute_stats` は spec 数・言語別内訳・警告数を 1 パスで計算する。
 //! skipped 状態の spec も `total_specs` に含む（仕様文として存在しているため）。
+//!
+//! 集計値は IR に 1 つだけ持つ。source ごとの内訳を IR に複製すると同じ事実が
+//! 二箇所に現れて同期ズレの余地が生まれるため、必要な場合はレンダラが
+//! `sources` ツリーから都度算出する。
 
-use crate::core::ir::{Diagnostic, DiagnosticLevel, Group, Language, Stats};
+use crate::core::ir::{Diagnostic, DiagnosticLevel, Group, Language, Source, Stats};
 
-/// `groups` ツリーと `diagnostics` から集計値を計算する純関数。
+/// `sources` ツリーと `diagnostics` から集計値を計算する純関数。
 #[must_use]
-pub fn compute_stats(groups: &[Group], diagnostics: &[Diagnostic]) -> Stats {
+pub fn compute_stats(sources: &[Source], diagnostics: &[Diagnostic]) -> Stats {
     let mut stats = Stats::default();
-    for group in groups {
+    for group in sources.iter().flat_map(|source| &source.groups) {
         accumulate(group, &mut stats);
     }
     stats.warnings = diagnostics
@@ -50,6 +54,13 @@ mod tests {
         }
     }
 
+    fn source(name: &str, groups: Vec<Group>) -> Source {
+        Source {
+            name: name.to_string(),
+            groups,
+        }
+    }
+
     fn spec(name: &str, language: Language, status: SpecStatus) -> Spec {
         Spec {
             name: name.to_string(),
@@ -81,8 +92,16 @@ mod tests {
     }
 
     #[test]
-    fn 何もないグループ列はゼロ集計を返す() {
+    fn ソースが一つも無ければゼロ集計を返す() {
         assert_eq!(compute_stats(&[], &[]), Stats::default());
+    }
+
+    #[test]
+    fn グループを持たないソースはゼロ集計になる() {
+        assert_eq!(
+            compute_stats(&[source("Backend", vec![])], &[]),
+            Stats::default()
+        );
     }
 
     #[test]
@@ -90,7 +109,7 @@ mod tests {
         let mut g = group("foo.rs");
         g.specs
             .push(spec("テスト", Language::Rust, SpecStatus::Active));
-        let stats = compute_stats(&[g], &[]);
+        let stats = compute_stats(&[source("Backend", vec![g])], &[]);
         assert_eq!(stats.total_specs, 1);
         assert_eq!(
             stats.languages,
@@ -108,7 +127,7 @@ mod tests {
         g.specs.push(spec("b", Language::Rust, SpecStatus::Active));
         g.specs
             .push(spec("c", Language::TypeScript, SpecStatus::Active));
-        let stats = compute_stats(&[g], &[]);
+        let stats = compute_stats(&[source("Backend", vec![g])], &[]);
         assert_eq!(stats.total_specs, 3);
         assert_eq!(
             stats.languages,
@@ -128,8 +147,37 @@ mod tests {
         root.specs
             .push(spec("top", Language::Rust, SpecStatus::Active));
         root.children.push(leaf);
-        let stats = compute_stats(&[root], &[]);
+        let stats = compute_stats(&[source("Backend", vec![root])], &[]);
         assert_eq!(stats.total_specs, 2);
+    }
+
+    #[test]
+    fn 複数ソースのspecを合算する() {
+        let mut rust_group = group("tests/foo.rs");
+        rust_group
+            .specs
+            .push(spec("rust spec", Language::Rust, SpecStatus::Active));
+        let mut ts_group = group("app/foo.test.ts");
+        ts_group
+            .specs
+            .push(spec("ts spec", Language::TypeScript, SpecStatus::Active));
+
+        let stats = compute_stats(
+            &[
+                source("Backend", vec![rust_group]),
+                source("Frontend", vec![ts_group]),
+            ],
+            &[],
+        );
+
+        assert_eq!(stats.total_specs, 2);
+        assert_eq!(
+            stats.languages,
+            Languages {
+                rust: 1,
+                typescript: 1,
+            }
+        );
     }
 
     #[test]
@@ -139,7 +187,7 @@ mod tests {
             .push(spec("active", Language::Rust, SpecStatus::Active));
         g.specs
             .push(spec("ignored", Language::Rust, SpecStatus::Skipped));
-        let stats = compute_stats(&[g], &[]);
+        let stats = compute_stats(&[source("Backend", vec![g])], &[]);
         assert_eq!(stats.total_specs, 2);
         assert_eq!(stats.languages.rust, 2);
     }

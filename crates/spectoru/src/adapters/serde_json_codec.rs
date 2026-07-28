@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::ir::{
     Diagnostic, DiagnosticCode, DiagnosticLevel, Group, IntermediateRepresentation, Language,
-    Languages, SourceMeta, Spec, SpecStatus, Stats,
+    Languages, ProjectMeta, Source, Spec, SpecStatus, Stats,
 };
 use crate::error::SpectoruError;
 use crate::ports::json_codec::JsonCodec;
@@ -36,20 +36,26 @@ impl JsonCodec for SerdeJsonCodec {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct IrDto {
-    source: SourceDto,
-    groups: Vec<GroupDto>,
+    project: ProjectDto,
+    sources: Vec<SourceDto>,
     diagnostics: Vec<DiagnosticDto>,
     stats: StatsDto,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct SourceDto {
+struct ProjectDto {
     name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     repository: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     revision: Option<String>,
     extracted_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SourceDto {
+    name: String,
+    groups: Vec<GroupDto>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -111,6 +117,7 @@ enum DiagnosticCodeDto {
     DynamicTestName,
     GitRevisionUnavailable,
     ParseError,
+    FileUnreadable,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -129,8 +136,8 @@ struct LanguagesDto {
 impl From<&IntermediateRepresentation> for IrDto {
     fn from(ir: &IntermediateRepresentation) -> Self {
         Self {
-            source: SourceDto::from(&ir.source),
-            groups: ir.groups.iter().map(GroupDto::from).collect(),
+            project: ProjectDto::from(&ir.project),
+            sources: ir.sources.iter().map(SourceDto::from).collect(),
             diagnostics: ir.diagnostics.iter().map(DiagnosticDto::from).collect(),
             stats: StatsDto::from(&ir.stats),
         }
@@ -140,32 +147,50 @@ impl From<&IntermediateRepresentation> for IrDto {
 impl From<IrDto> for IntermediateRepresentation {
     fn from(dto: IrDto) -> Self {
         Self {
-            source: dto.source.into(),
-            groups: dto.groups.into_iter().map(Into::into).collect(),
+            project: dto.project.into(),
+            sources: dto.sources.into_iter().map(Into::into).collect(),
             diagnostics: dto.diagnostics.into_iter().map(Into::into).collect(),
             stats: dto.stats.into(),
         }
     }
 }
 
-impl From<&SourceMeta> for SourceDto {
-    fn from(s: &SourceMeta) -> Self {
+impl From<&ProjectMeta> for ProjectDto {
+    fn from(p: &ProjectMeta) -> Self {
         Self {
-            name: s.name.clone(),
-            repository: s.repository.clone(),
-            revision: s.revision.clone(),
-            extracted_at: s.extracted_at.clone(),
+            name: p.name.clone(),
+            repository: p.repository.clone(),
+            revision: p.revision.clone(),
+            extracted_at: p.extracted_at.clone(),
         }
     }
 }
 
-impl From<SourceDto> for SourceMeta {
-    fn from(d: SourceDto) -> Self {
+impl From<ProjectDto> for ProjectMeta {
+    fn from(d: ProjectDto) -> Self {
         Self {
             name: d.name,
             repository: d.repository,
             revision: d.revision,
             extracted_at: d.extracted_at,
+        }
+    }
+}
+
+impl From<&Source> for SourceDto {
+    fn from(s: &Source) -> Self {
+        Self {
+            name: s.name.clone(),
+            groups: s.groups.iter().map(GroupDto::from).collect(),
+        }
+    }
+}
+
+impl From<SourceDto> for Source {
+    fn from(d: SourceDto) -> Self {
+        Self {
+            name: d.name,
+            groups: d.groups.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -304,6 +329,7 @@ impl From<DiagnosticCode> for DiagnosticCodeDto {
             DiagnosticCode::DynamicTestName => Self::DynamicTestName,
             DiagnosticCode::GitRevisionUnavailable => Self::GitRevisionUnavailable,
             DiagnosticCode::ParseError => Self::ParseError,
+            DiagnosticCode::FileUnreadable => Self::FileUnreadable,
         }
     }
 }
@@ -316,6 +342,7 @@ impl From<DiagnosticCodeDto> for DiagnosticCode {
             DiagnosticCodeDto::DynamicTestName => Self::DynamicTestName,
             DiagnosticCodeDto::GitRevisionUnavailable => Self::GitRevisionUnavailable,
             DiagnosticCodeDto::ParseError => Self::ParseError,
+            DiagnosticCodeDto::FileUnreadable => Self::FileUnreadable,
         }
     }
 }

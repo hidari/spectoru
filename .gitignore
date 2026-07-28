@@ -28,3 +28,9 @@ target
 # OS が生成するメタデータ
 .DS_Store
 Thumbs.db
+
+# spectoru 自身の仕様サイト（cargo xtask spec-site の生成物）
+/dist/
+
+# cargo xtask dist の生成物
+/dist-artifacts/
