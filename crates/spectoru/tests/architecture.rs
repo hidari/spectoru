@@ -108,10 +108,17 @@ fn derive_names(source: &str) -> Vec<String> {
     names
 }
 
+/// 外部 crate を `use` してはならない層。
+///
+/// `app/` を含むのは、ユースケースが具体的なライブラリを直接掴んだ時点で
+/// library-contract パターンが形骸化するため。I/O はすべてポート越しに行う。
+const DOMAIN_DIRECTORIES: &[&str] = &["core", "ports", "app"];
+
 fn domain_files() -> Vec<PathBuf> {
-    let mut files = rust_files(&src_dir().join("core"));
-    files.extend(rust_files(&src_dir().join("ports")));
-    files
+    DOMAIN_DIRECTORIES
+        .iter()
+        .flat_map(|directory| rust_files(&src_dir().join(directory)))
+        .collect()
 }
 
 #[test]

@@ -117,6 +117,7 @@ enum DiagnosticCodeDto {
     DynamicTestName,
     GitRevisionUnavailable,
     ParseError,
+    FileUnreadable,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -328,6 +329,7 @@ impl From<DiagnosticCode> for DiagnosticCodeDto {
             DiagnosticCode::DynamicTestName => Self::DynamicTestName,
             DiagnosticCode::GitRevisionUnavailable => Self::GitRevisionUnavailable,
             DiagnosticCode::ParseError => Self::ParseError,
+            DiagnosticCode::FileUnreadable => Self::FileUnreadable,
         }
     }
 }
@@ -340,6 +342,7 @@ impl From<DiagnosticCodeDto> for DiagnosticCode {
             DiagnosticCodeDto::DynamicTestName => Self::DynamicTestName,
             DiagnosticCodeDto::GitRevisionUnavailable => Self::GitRevisionUnavailable,
             DiagnosticCodeDto::ParseError => Self::ParseError,
+            DiagnosticCodeDto::FileUnreadable => Self::FileUnreadable,
         }
     }
 }

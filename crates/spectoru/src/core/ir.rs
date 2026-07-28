@@ -107,8 +107,10 @@ pub enum DiagnosticCode {
     DynamicTestName,
     /// git revision の取得に失敗した。
     GitRevisionUnavailable,
-    /// パーサがソースファイルを読めなかった。
+    /// パーサがソースファイルを解釈できなかった。
     ParseError,
+    /// 探索で見つかったファイルを読み出せなかった。
+    FileUnreadable,
 }
 
 /// extract 結果の集計値。

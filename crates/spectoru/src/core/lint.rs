@@ -5,6 +5,22 @@
 
 use crate::core::ir::{Diagnostic, DiagnosticCode, DiagnosticLevel, Group, Source, Spec};
 
+/// 診断の集合が品質ゲートを通らないかを判定する純関数。
+///
+/// error は常に失敗させ、warning は `strict` のときだけ失敗させる。
+/// 「error」という語が意味するとおりの挙動にするのが最も驚きが少ない。
+///
+/// error になるのはソースを解釈できなかった場合、つまり仕様サイトが不完全に
+/// なる場合に限る。ネストの深さや空のテスト名は「書き方の問題」であって
+/// サイトは正しく作れるため warning にとどめ、ゲートにするかは利用者が
+/// `--strict` で選ぶ。
+#[must_use]
+pub fn fails_quality_gate(diagnostics: &[Diagnostic], strict: bool) -> bool {
+    diagnostics
+        .iter()
+        .any(|diagnostic| strict || diagnostic.level == DiagnosticLevel::Error)
+}
+
 /// IR 全体（全 source）を走査して lint diagnostics を返す純関数。
 ///
 /// diagnostics は `sources` の宣言順、その中では [`validate_groups`] の順序で並ぶ。
@@ -231,6 +247,45 @@ mod tests {
         assert_eq!(diags.len(), 2);
         assert_eq!(diags[0].code, DiagnosticCode::EmptyName);
         assert_eq!(diags[1].code, DiagnosticCode::NestingTooDeep);
+    }
+
+    fn diagnostic(level: DiagnosticLevel) -> Diagnostic {
+        Diagnostic {
+            level,
+            code: DiagnosticCode::ParseError,
+            message: String::new(),
+            file: None,
+            line: None,
+        }
+    }
+
+    #[test]
+    fn 診断が無ければ品質ゲートを通る() {
+        assert!(!fails_quality_gate(&[], false));
+        assert!(!fails_quality_gate(&[], true));
+    }
+
+    #[test]
+    fn errorは常に品質ゲートを落とす() {
+        let diagnostics = [diagnostic(DiagnosticLevel::Error)];
+        assert!(fails_quality_gate(&diagnostics, false));
+        assert!(fails_quality_gate(&diagnostics, true));
+    }
+
+    #[test]
+    fn warningはstrictのときだけ品質ゲートを落とす() {
+        let diagnostics = [diagnostic(DiagnosticLevel::Warning)];
+        assert!(!fails_quality_gate(&diagnostics, false));
+        assert!(fails_quality_gate(&diagnostics, true));
+    }
+
+    #[test]
+    fn warningに1件でもerrorが混ざれば落とす() {
+        let diagnostics = [
+            diagnostic(DiagnosticLevel::Warning),
+            diagnostic(DiagnosticLevel::Error),
+        ];
+        assert!(fails_quality_gate(&diagnostics, false));
     }
 
     #[test]

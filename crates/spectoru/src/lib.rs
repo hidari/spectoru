@@ -7,6 +7,7 @@
 //! library-specific implementations live under [`adapters`].
 
 pub mod adapters;
+pub mod app;
 pub mod core;
 pub mod error;
 pub mod ports;

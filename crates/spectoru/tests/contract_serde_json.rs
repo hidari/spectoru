@@ -237,6 +237,60 @@ fn diagnostic_codeはsnake_caseでシリアライズされる() {
     assert!(json.contains("\"code\": \"nesting_too_deep\""));
 }
 
+/// すべての `DiagnosticCode` を列挙する。
+///
+/// `match` を置いているのは網羅性のため。変異体を増やすとここがコンパイル
+/// エラーになり、JSON 表現の追従漏れに気づける。
+fn all_diagnostic_codes() -> Vec<DiagnosticCode> {
+    let all = vec![
+        DiagnosticCode::NestingTooDeep,
+        DiagnosticCode::EmptyName,
+        DiagnosticCode::DynamicTestName,
+        DiagnosticCode::GitRevisionUnavailable,
+        DiagnosticCode::ParseError,
+        DiagnosticCode::FileUnreadable,
+    ];
+    for code in &all {
+        match code {
+            DiagnosticCode::NestingTooDeep
+            | DiagnosticCode::EmptyName
+            | DiagnosticCode::DynamicTestName
+            | DiagnosticCode::GitRevisionUnavailable
+            | DiagnosticCode::ParseError
+            | DiagnosticCode::FileUnreadable => {}
+        }
+    }
+    all
+}
+
+#[test]
+fn すべてのdiagnostic_codeがラウンドトリップする() {
+    for code in all_diagnostic_codes() {
+        let mut ir = full_ir();
+        ir.diagnostics[0].code = code;
+
+        let codec = SerdeJsonCodec;
+        let json = codec.encode(&ir).expect("encode");
+        let decoded = codec.decode(&json).expect("decode");
+
+        assert_eq!(decoded.diagnostics[0].code, code);
+    }
+}
+
+#[test]
+fn すべてのdiagnostic_levelがラウンドトリップする() {
+    for level in [DiagnosticLevel::Warning, DiagnosticLevel::Error] {
+        let mut ir = full_ir();
+        ir.diagnostics[0].level = level;
+
+        let codec = SerdeJsonCodec;
+        let json = codec.encode(&ir).expect("encode");
+        let decoded = codec.decode(&json).expect("decode");
+
+        assert_eq!(decoded.diagnostics[0].level, level);
+    }
+}
+
 #[test]
 fn diagnostic_levelは小文字でシリアライズされる() {
     let json = SerdeJsonCodec.encode(&full_ir()).unwrap();
