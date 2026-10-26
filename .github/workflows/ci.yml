@@ -28,7 +28,7 @@ jobs:
         run: rustup show
 
       - name: Cache cargo build
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       - name: Run cargo xtask ci
         run: cargo xtask ci
@@ -47,7 +47,7 @@ jobs:
         run: rustup show
 
       - name: Cache cargo build
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       # spectoru 自身のテストを spectoru で可視化する（ドッグフーディング）。
       # 想定ユースケースにそのまま当てはまる構成を自前で持っているため、
